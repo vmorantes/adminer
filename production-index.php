@@ -23,7 +23,7 @@ function adminer_object()
         new AdminerPHPSerializedColumn(),
         new FillLoginForm(
             'server',
-            'localhost',
+            'localhost'
         ),
     );
 
