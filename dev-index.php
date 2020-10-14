@@ -7,6 +7,16 @@ function adminer_object()
         include_once "./$filename";
     }
 
+    class CustomAdminer extends AdminerPlugin
+    {
+
+        function permanentLogin()
+        {
+            return '4476c9dccdc083dd8bcf72bcb1c8f1db';
+        }
+
+    }
+
     $lessPasswordLoginPhrase = '123456789456123456';
 
     $plugins = array(
@@ -32,7 +42,7 @@ function adminer_object()
         ),
     );
 
-    return new AdminerPlugin($plugins);
+    return new CustomAdminer($plugins);
 }
 
 // include original Adminer or Adminer Editor
