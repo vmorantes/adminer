@@ -10,7 +10,7 @@ function adminer_object()
     class CustomAdminer extends AdminerPlugin
     {
 
-        function permanentLogin()
+        function permanentLogin($i = false)
         {
             return '4476c9dccdc083dd8bcf72bcb1c8f1db';
         }
