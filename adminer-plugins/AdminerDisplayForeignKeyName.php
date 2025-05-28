@@ -5,6 +5,7 @@
  * @category Plugin
  * @link http://www.adminer.org/plugins/#use
  * @author Bruno VIBERT <http://www.netapsys.fr>
+ * @modified by Peter Hostačný <hostacny.peter AT gmail.com>
  * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
  * @license http://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
  */
@@ -40,15 +41,15 @@ class AdminerDisplayForeignKeyName
      */ 
     function selectVal($val, $link, $field, $original) {
         $return = ($val === null ? "<i>NULL</i>" : (preg_match("~char|binary~", $field["type"]) && !preg_match("~var~", $field["type"]) ? "<code>$val</code>" : $val));
-        if (preg_match('~blob|bytea|raw|file~', $field["type"]) && !is_utf8($val)) 
+        if (preg_match('~blob|bytea|raw|file~', $field["type"]) && !Adminer\is_utf8($val)) 
         {
-            $return = lang('%d byte(s)', strlen($original));
+            $return = Adminer\lang('%d byte(s)', strlen($original));
         }
         else
         {
             parse_str( substr($link, 1 ), $params );
             
-            if( true == is_array($params) && true == array_key_exists('where', $params) ) 
+            if( true == is_array($params) && true == array_key_exists('where', $params) && !preg_match("~var~", $field["type"])) 
             {
                 $where = array();
                 foreach( $params['where'] as $param )
@@ -56,11 +57,11 @@ class AdminerDisplayForeignKeyName
                    $where[] = join(' ', $param );
                 }
                 
-                // Find the first char/varchar field to display
+                // Find the first char/varchar/enum field to display
                 $fieldName = false;
-                foreach( fields( $params['select'] ) as $field )
+                foreach( Adminer\fields( $params['select'] ) as $field )
                 {
-                    if( true == in_array( $field['type'], array('char','varchar' ) ) )
+                    if( true == in_array( $field['type'], array('char','varchar','enum' ) ) )
                     {
                         $fieldName = $field['field'];
                         break;
@@ -74,7 +75,7 @@ class AdminerDisplayForeignKeyName
                     $return = self::_getCache( md5( $query ) );
                     if( false === $return )
                     {
-                        $result = connection() -> query( $query );
+                        $result = Adminer\connection() -> query( $query );
                         if($result -> num_rows == 1 )
                         {
                             $row    = $result -> fetch_assoc();
@@ -92,6 +93,6 @@ class AdminerDisplayForeignKeyName
             }
         }
         
-        return ($link ? "<a href='" . h($link) . "'" . (is_url($link) ? " rel='noreferrer'" : "") . ">$return</a>" : $return);
+        return ($link ? "<a href='" . Adminer\h($link) . "'" . (Adminer\is_url($link) ? " rel='noreferrer'" : "") . ">$return</a>" : $return);
     }
 }
