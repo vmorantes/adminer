@@ -10,6 +10,10 @@
 
 namespace Adminer;
 
+if(!defined('_DEV_MODE_')){
+	define('_DEV_MODE_', false);
+}
+
 include "./include/bootstrap.inc.php";
 include "./include/tmpfile.inc.php";
 

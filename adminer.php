@@ -7,7 +7,7 @@
 * @license https://www.gnu.org/licenses/gpl-2.0.html GNU General Public License, version 2 (one or other)
 * @version 5.3.0
 */namespace
-Adminer;const
+Adminer;if(!defined('_DEV_MODE_'))define('_DEV_MODE_',false);const
 VERSION="5.3.0";error_reporting(24575);set_error_handler(function($Fc,$Hc){return!!preg_match('~^Undefined (array key|offset|index)~',$Hc);},E_WARNING|E_NOTICE);$cd=!preg_match('~^(unsafe_raw)?$~',ini_get("filter.default"));if($cd||ini_get("filter.default_flags")){foreach(array('_GET','_POST','_COOKIE','_SERVER')as$X){$sj=filter_input_array(constant("INPUT$X"),FILTER_UNSAFE_RAW);if($sj)$$X=$sj;}}if(function_exists("mb_internal_encoding"))mb_internal_encoding("8bit");function
 connection($h=null){return($h?:Db::$instance);}function
 adminer(){return
@@ -1032,7 +1032,9 @@ name(){return"<a href='https://www.adminer.org/'".target_blank()." id='h1'><img 
 credentials(){return
 array(SERVER,$_GET["username"],get_password());}function
 connectSsl(){}function
-permanentLogin($i=false){return
+permanentLogin($i=false){if(function_exists('permanentLogin')){echo'YUJU!';return
+call_user_func('permanentLogin');}else
+return
 password_file($i);}function
 bruteForceKey(){return$_SERVER["REMOTE_ADDR"];}function
 serverName($N){return

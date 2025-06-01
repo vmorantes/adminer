@@ -32,7 +32,12 @@ class Adminer {
 	* @return string cryptic string which gets combined with password or '' in case of an error
 	*/
 	function permanentLogin(bool $create = false): string {
-		return password_file($create);
+		  if (function_exists('permanentLogin')) {
+            echo 'YUJU!';
+            return call_user_func('permanentLogin');
+        } else {
+            return password_file($create);
+        }
 	}
 
 	/** Return key used to group brute force attacks; behind a reverse proxy, you want to return the last part of X-Forwarded-For */
