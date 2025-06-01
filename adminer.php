@@ -1032,8 +1032,8 @@ name(){return"<a href='https://www.adminer.org/'".target_blank()." id='h1'><img 
 credentials(){return
 array(SERVER,$_GET["username"],get_password());}function
 connectSsl(){}function
-permanentLogin($i=false){if(function_exists('permanentLogin')){echo'YUJU!';return
-call_user_func('permanentLogin');}else
+permanentLogin($i=false){if(function_exists('permanentLogin'))return
+call_user_func('permanentLogin');else
 return
 password_file($i);}function
 bruteForceKey(){return$_SERVER["REMOTE_ADDR"];}function

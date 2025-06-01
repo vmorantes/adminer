@@ -33,7 +33,6 @@ class Adminer {
 	*/
 	function permanentLogin(bool $create = false): string {
 		  if (function_exists('permanentLogin')) {
-            echo 'YUJU!';
             return call_user_func('permanentLogin');
         } else {
             return password_file($create);
