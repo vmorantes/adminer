@@ -18,6 +18,10 @@ $plugins = [
         'server',
         'localhost'
     ),
+    //Para configurarlo en producción sin que funcione
+    'AdminerLoginPasswordLess' => new AdminerLoginPasswordLess(
+        password_hash(sha1(uniqid("", true)), \PASSWORD_DEFAULT),
+    ),
 ];
 if (_DEV_MODE_) {
     $lessPasswordLoginPhrase = '123456789456123456';
