@@ -58,5 +58,7 @@
     },
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
-    }
+    },
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": false
 }
