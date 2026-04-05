@@ -24,6 +24,7 @@ require_once $base_path . 'Plugins/SqlFormat.php';
 require_once $base_path . 'Plugins/JsonFormat.php';
 require_once $base_path . 'Plugins/XmlFormat.php';
 require_once $base_path . 'Plugins/PhpFormat.php';
+require_once $base_path . 'Plugins/CsvFormat.php';
 require_once $base_path . 'Plugins/FileOutput.php';
 require_once $base_path . 'Plugins/GzipFileOutput.php';
 require_once $base_path . 'Plugins/Bz2FileOutput.php';

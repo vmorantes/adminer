@@ -6,6 +6,7 @@ use PiecesPHP\Core\Database\Export\Enums\DataStyle;
 use PiecesPHP\Core\Database\Export\Enums\TableStyle;
 use PiecesPHP\Core\Database\Export\Exporter;
 use PiecesPHP\Core\Database\Export\Plugins\Bz2FileOutput;
+use PiecesPHP\Core\Database\Export\Plugins\CsvFormat;
 use PiecesPHP\Core\Database\Export\Plugins\FileOutput;
 use PiecesPHP\Core\Database\Export\Plugins\GzipFileOutput;
 use PiecesPHP\Core\Database\Export\Plugins\JsonFormat;
@@ -62,6 +63,12 @@ try {
             'format' => new XmlFormat(),
             'options' => array_merge($baseOptions, [
                 'filename' => "{$database}.xml",
+            ]),
+        ],
+        [
+            'format' => new CsvFormat(),
+            'options' => array_merge($baseOptions, [
+                'filename' => "{$database}.csv",
             ]),
         ],
     ];
