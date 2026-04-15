@@ -20,10 +20,11 @@ if (isset($_GET["pgsql"])) {
 				$this->error = $error;
 			}
 
-			function attach(?string $server, string $username, string $password): string {
+			function attach(string $server, string $username, string $password): string {
 				$db = adminer()->database();
 				set_error_handler(array($this, '_error'));
-				$this->string = "host='" . str_replace(":", "' port='", addcslashes($server, "'\\")) . "' user='" . addcslashes($username, "'\\") . "' password='" . addcslashes($password, "'\\") . "'";
+				list($host, $port) = host_port(addcslashes($server, "'\\"));
+				$this->string = "host='$host'" . ($port ? " port='$port'" : "") . " user='" . addcslashes($username, "'\\") . "' password='" . addcslashes($password, "'\\") . "'";
 				$ssl = adminer()->connectSsl();
 				if (isset($ssl["mode"])) {
 					$this->string .= " sslmode='" . $ssl["mode"] . "'";
@@ -143,10 +144,11 @@ if (isset($_GET["pgsql"])) {
 			public $extension = "PDO_PgSQL";
 			public $timeout = 0;
 
-			function attach(?string $server, string $username, string $password): string {
+			function attach(string $server, string $username, string $password): string {
 				$db = adminer()->database();
+				list($host, $port) = host_port(addcslashes($server, "'\\"));
 				//! client_encoding is supported since 9.1, but we can't yet use min_version here
-				$dsn = "pgsql:host='" . str_replace(":", "' port='", addcslashes($server, "'\\")) . "' client_encoding=utf8 dbname='" . ($db != "" ? addcslashes($db, "'\\") : "postgres") . "'";
+				$dsn = "pgsql:host='$host'" . ($port ? " port='$port'" : "") . " client_encoding=utf8 dbname='" . ($db != "" ? addcslashes($db, "'\\") : "postgres") . "'";
 				$ssl = adminer()->connectSsl();
 				if (isset($ssl["mode"])) {
 					$dsn .= " sslmode='" . $ssl["mode"] . "'";
@@ -204,13 +206,13 @@ if (isset($_GET["pgsql"])) {
 		static $extensions = array("PgSQL", "PDO_PgSQL");
 		static $jush = "pgsql";
 
-		public $operators = array("=", "<", ">", "<=", ">=", "!=", "~", "!~", "LIKE", "LIKE %%", "ILIKE", "ILIKE %%", "IN", "IS NULL", "NOT LIKE", "NOT ILIKE", "NOT IN", "IS NOT NULL"); // no "SQL" to avoid CSRF
+		public $operators = array("=", "<", ">", "<=", ">=", "!=", "~", "!~", "LIKE", "LIKE %%", "ILIKE", "ILIKE %%", "IN", "IS NULL", "NOT LIKE", "NOT ILIKE", "NOT IN", "IS NOT NULL", "SQL"); //! SQL - same-site CSRF
 		public $functions = array("char_length", "lower", "round", "to_hex", "to_timestamp", "upper");
 		public $grouping = array("avg", "count", "count distinct", "max", "min", "sum");
 
 		public string $nsOid = "(SELECT oid FROM pg_namespace WHERE nspname = current_schema())";
 
-		static function connect(?string $server, string $username, string $password) {
+		static function connect(string $server, string $username, string $password) {
 			$connection = parent::connect($server, $username, $password);
 			if (is_string($connection)) {
 				return $connection;
@@ -288,7 +290,7 @@ if (isset($_GET["pgsql"])) {
 					}
 				}
 				if (
-					!(($where && queries("UPDATE " . table($table) . " SET " . implode(", ", $update) . " WHERE " . implode(" AND ", $where)) && connection()->affected_rows)
+					!(($where && queries("UPDATE " . table($table) . " SET " . implode(", ", $update) . " WHERE " . implode(" AND ", $where)) && $this->conn->affected_rows)
 					|| queries("INSERT INTO " . table($table) . " (" . implode(", ", array_keys($set)) . ") VALUES (" . implode(", ", $set) . ")"))
 				) {
 					return false;
@@ -332,15 +334,15 @@ if (isset($_GET["pgsql"])) {
 		}
 
 		function inheritsFrom(string $table): array {
-			return get_vals("SELECT relname FROM pg_class JOIN pg_inherits ON inhparent = oid WHERE inhrelid = " . $this->tableOid($table) . " ORDER BY 1");
+			return get_rows("SELECT relname AS table, nspname AS ns FROM pg_class JOIN pg_inherits ON inhparent = oid JOIN pg_namespace ON relnamespace = pg_namespace.oid WHERE inhrelid = " . $this->tableOid($table) . " ORDER BY 2, 1");
 		}
 
 		function inheritedTables(string $table): array {
-			return get_vals("SELECT relname FROM pg_inherits JOIN pg_class ON inhrelid = oid WHERE inhparent = " . $this->tableOid($table) . " ORDER BY 1");
+			return get_rows("SELECT relname AS table, nspname AS ns FROM pg_inherits JOIN pg_class ON inhrelid = oid JOIN pg_namespace ON relnamespace = pg_namespace.oid WHERE inhparent = " . $this->tableOid($table) . " ORDER BY 2, 1");
 		}
 
 		function partitionsInfo(string $table): array {
-			$row = connection()->query("SELECT * FROM pg_partitioned_table WHERE partrelid = " . driver()->tableOid($table))->fetch_assoc();
+			$row = (min_version(10) ? $this->conn->query("SELECT * FROM pg_partitioned_table WHERE partrelid = " . $this->tableOid($table))->fetch_assoc() : null);
 			if ($row) {
 				$attrs = get_vals("SELECT attname FROM pg_attribute WHERE attrelid = $row[partrelid] AND attnum IN (" . str_replace(" ", ", ", $row["partattrs"]) . ")"); //! ordering
 				$by = array('h' => 'HASH', 'l' => 'LIST', 'r' => 'RANGE');
@@ -359,7 +361,7 @@ if (isset($_GET["pgsql"])) {
 		function indexAlgorithms(array $tableStatus): array {
 			static $return = array();
 			if (!$return) {
-				$return = get_vals("SELECT amname FROM pg_am" . (min_version(9.6) ? " WHERE amtype = 'i'" : "") . " ORDER BY amname = 'btree' DESC, amname");
+				$return = get_vals("SELECT amname FROM pg_am" . (min_version(9.6) ? " WHERE amtype = 'i'" : "") . " ORDER BY amname = '" . ($this->conn->flavor == 'cockroach' ? "prefix" : "btree") . "' DESC, amname");
 			}
 			return $return;
 		}
@@ -448,15 +450,14 @@ ORDER BY 1";
 			get_rows("SELECT
 	relname AS \"Name\",
 	CASE relkind WHEN 'v' THEN 'view' WHEN 'm' THEN 'materialized view' ELSE 'table' END AS \"Engine\"" . ($has_size ? ",
-	pg_table_size(oid) AS \"Data_length\",
-	pg_indexes_size(oid) AS \"Index_length\"" : "") . ",
-	obj_description(oid, 'pg_class') AS \"Comment\",
+	pg_table_size(c.oid) AS \"Data_length\",
+	pg_indexes_size(c.oid) AS \"Index_length\"" : "") . ",
+	obj_description(c.oid, 'pg_class') AS \"Comment\",
 	" . (min_version(12) ? "''" : "CASE WHEN relhasoids THEN 'oid' ELSE '' END") . " AS \"Oid\",
-	reltuples as \"Rows\",
-	inhparent AS inherited,
+	reltuples AS \"Rows\",
+	" . (min_version(10) ? "relispartition::int AS partition," : "") . "
 	current_schema() AS nspname
-FROM pg_class
-LEFT JOIN pg_inherits ON inhrelid = oid
+FROM pg_class c
 WHERE relkind IN ('r', 'm', 'v', 'f', 'p')
 AND relnamespace = " . driver()->nsOid . "
 " . ($name != "" ? "AND relname = " . q($name) : "ORDER BY relname")) as $row //! Auto_increment
@@ -486,17 +487,19 @@ AND relnamespace = " . driver()->nsOid . "
 	format_type(a.atttypid, a.atttypmod) AS full_type,
 	pg_get_expr(d.adbin, d.adrelid) AS default,
 	a.attnotnull::int,
+	i.indrelid AS primary,
 	col_description(a.attrelid, a.attnum) AS comment" . (min_version(10) ? ",
 	a.attidentity" . (min_version(12) ? ",
 	a.attgenerated" : "") : "") . "
 FROM pg_attribute a
 LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+LEFT JOIN pg_index i ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) AND i.indisprimary
 WHERE a.attrelid = " . driver()->tableOid($table) . "
 AND NOT a.attisdropped
 AND a.attnum > 0
 ORDER BY a.attnum") as $row
 		) {
-			//! collation, primary
+			//! collation
 			preg_match('~([^([]+)(\((.*)\))?([a-z ]+)?((\[[0-9]*])*)$~', $row["full_type"], $match);
 			list(, $type, $length, $row["length"], $addon, $array) = $match;
 			$row["length"] .= $array;
@@ -516,7 +519,7 @@ ORDER BY a.attnum") as $row
 			$row["auto_increment"] = $row['attidentity'] || preg_match('~^nextval\(~i', $row["default"])
 				|| preg_match('~^unique_rowid\(~', $row["default"]); // CockroachDB
 			$row["privileges"] = array("insert" => 1, "select" => 1, "update" => 1, "where" => 1, "order" => 1);
-			if (preg_match('~(.+)::[^,)]+(.*)~', $row["default"], $match)) {
+			if (!$row['generated'] && preg_match('~(.+)::[^,)]+(.*)~', $row["default"], $match)) {
 				$row["default"] = ($match[1] == "NULL" ? null : idf_unescape($match[1]) . $match[2]);
 			}
 			$return[$row["field"]] = $row;
@@ -530,7 +533,7 @@ ORDER BY a.attnum") as $row
 		$table_oid = driver()->tableOid($table);
 		$columns = get_key_vals("SELECT attnum, attname FROM pg_attribute WHERE attrelid = $table_oid AND attnum > 0", $connection2);
 		foreach (
-			get_rows("SELECT relname, indisunique::int, indisprimary::int, indkey, indoption, (indpred IS NOT NULL)::int as indispartial, pg_am.amname as algorithm, pg_get_expr(pg_index.indpred, pg_index.indrelid, true) AS partial
+			get_rows("SELECT relname, indisunique::int, indisprimary::int, indkey, indoption, amname, pg_get_expr(indpred, indrelid, true) AS partial, pg_get_expr(indexprs, indrelid) AS indexpr
 FROM pg_index
 JOIN pg_class ON indexrelid = oid
 JOIN pg_am ON pg_am.oid = pg_class.relam
@@ -538,18 +541,17 @@ WHERE indrelid = $table_oid
 ORDER BY indisprimary DESC, indisunique DESC", $connection2) as $row
 		) {
 			$relname = $row["relname"];
-			$return[$relname]["type"] = ($row["indispartial"] ? "INDEX" : ($row["indisprimary"] ? "PRIMARY" : ($row["indisunique"] ? "UNIQUE" : "INDEX")));
+			$return[$relname]["type"] = ($row["indisprimary"] ? "PRIMARY" : ($row["indisunique"] ? "UNIQUE" : "INDEX"));
 			$return[$relname]["columns"] = array();
 			$return[$relname]["descs"] = array();
-			$return[$relname]["algorithm"] = $row["algorithm"];
+			$return[$relname]["algorithm"] = $row["amname"];
 			$return[$relname]["partial"] = $row["partial"];
-			if ($row["indkey"]) {
-				foreach (explode(" ", $row["indkey"]) as $indkey) {
-					$return[$relname]["columns"][] = $columns[$indkey];
-				}
-				foreach (explode(" ", $row["indoption"]) as $indoption) {
-					$return[$relname]["descs"][] = (intval($indoption) & 1 ? '1' : null); // 1 - INDOPTION_DESC
-				}
+			$indexpr = preg_split('~(?<=\)), (?=\()~', $row["indexpr"]); //! '), (' used in expression
+			foreach (explode(" ", $row["indkey"]) as $indkey) {
+				$return[$relname]["columns"][] = ($indkey ? $columns[$indkey] : array_shift($indexpr));
+			}
+			foreach (explode(" ", $row["indoption"]) as $indoption) {
+				$return[$relname]["descs"][] = (intval($indoption) & 1 ? '1' : null); // 1 - INDOPTION_DESC
 			}
 			$return[$relname]["lengths"] = array();
 		}
@@ -559,12 +561,13 @@ ORDER BY indisprimary DESC, indisunique DESC", $connection2) as $row
 	function foreign_keys($table) {
 		$return = array();
 		foreach (
-			get_rows("SELECT conname, condeferrable::int AS deferrable, pg_get_constraintdef(oid) AS definition
+			get_rows("SELECT conname, condeferrable::int AS deferrable, condeferred::int AS deferred, pg_get_constraintdef(oid) AS definition
 FROM pg_constraint
 WHERE conrelid = " . driver()->tableOid($table) . "
 AND contype = 'f'::char
 ORDER BY conkey, conname") as $row
 		) {
+			$row['deferrable'] = ($row['deferrable'] ? '' : 'NOT ') . 'DEFERRABLE' . ($row['deferred'] ? ' INITIALLY DEFERRED' : '');
 			if (preg_match('~FOREIGN KEY\s*\((.+)\)\s*REFERENCES (.+)\((.+)\)(.*)$~iA', $row['definition'], $match)) {
 				$row['source'] = array_map('Adminer\idf_unescape', array_map('trim', explode(',', $match[1])));
 				if (preg_match('~^(("([^"]|"")+"|[^"]+)\.)?"?("([^"]|"")+"|[^"]+)$~', $match[2], $match2)) {
@@ -824,7 +827,7 @@ FROM information_schema.routines
 WHERE routine_schema = current_schema() AND specific_name = ' . q($name));
 		$return = idx($rows, 0, array());
 		$return["returns"] = array("type" => $return["type_udt_name"]);
-		$return["fields"] = get_rows('SELECT parameter_name AS field, data_type AS type, character_maximum_length AS length, parameter_mode AS inout
+		$return["fields"] = get_rows('SELECT COALESCE(parameter_name, ordinal_position::text) AS field, data_type AS type, character_maximum_length AS length, parameter_mode AS inout
 FROM information_schema.parameters
 WHERE specific_schema = current_schema() AND specific_name = ' . q($name) . '
 ORDER BY ordinal_position');
@@ -910,7 +913,7 @@ AND typelem = 0"
 		ksort($fkeys);
 
 		foreach ($fkeys as $fkey_name => $fkey) {
-			$return .= "ALTER TABLE ONLY " . idf_escape($status['nspname']) . "." . idf_escape($status['Name']) . " ADD CONSTRAINT " . idf_escape($fkey_name) . " $fkey[definition] " . ($fkey['deferrable'] ? 'DEFERRABLE' : 'NOT DEFERRABLE') . ";\n";
+			$return .= "ALTER TABLE ONLY " . idf_escape($status['nspname']) . "." . idf_escape($status['Name']) . " ADD CONSTRAINT " . idf_escape($fkey_name) . " $fkey[definition];\n";
 		}
 
 		return ($return ? "$return\n" : $return);
@@ -921,9 +924,10 @@ AND typelem = 0"
 		$sequences = array();
 
 		$status = table_status1($table);
+		$ns = idf_escape($status['nspname']);
 		if (is_view($status)) {
 			$view = view($table);
-			return rtrim("CREATE VIEW " . idf_escape($table) . " AS $view[select]", ";");
+			return rtrim("CREATE VIEW $ns." . idf_escape($table) . " AS $view[select]", ";");
 		}
 		$fields = fields($table);
 
@@ -931,7 +935,7 @@ AND typelem = 0"
 			return false;
 		}
 
-		$return = "CREATE TABLE " . idf_escape($status['nspname']) . "." . idf_escape($status['Name']) . " (\n    ";
+		$return = "CREATE TABLE $ns." . idf_escape($status['Name']) . " (\n    ";
 
 		// fields' definitions
 		foreach ($fields as $field) {
@@ -947,8 +951,8 @@ AND typelem = 0"
 					? "SELECT *, cache_size AS cache_value FROM pg_sequences WHERE schemaname = current_schema() AND sequencename = " . q(idf_unescape($sequence_name))
 					: "SELECT * FROM $sequence_name"
 				), null, "-- "));
-				$sequences[] = ($style == "DROP+CREATE" ? "DROP SEQUENCE IF EXISTS $sequence_name;\n" : "")
-					. "CREATE SEQUENCE $sequence_name INCREMENT $sq[increment_by] MINVALUE $sq[min_value] MAXVALUE $sq[max_value]"
+				$sequences[] = ($style == "DROP+CREATE" ? "DROP SEQUENCE IF EXISTS $ns.$sequence_name;\n" : "")
+					. "CREATE SEQUENCE $ns.$sequence_name INCREMENT $sq[increment_by] MINVALUE $sq[min_value] MAXVALUE $sq[max_value]"
 					. ($auto_increment && $sq['last_value'] ? " START " . ($sq["last_value"] + 1) : "")
 					. " CACHE $sq[cache_value];"
 				;
@@ -969,7 +973,7 @@ AND typelem = 0"
 		}
 
 		foreach (driver()->checkConstraints($table) as $conname => $consrc) {
-			$return_parts[] = "CONSTRAINT " . idf_escape($conname) . " CHECK $consrc";
+			$return_parts[] = "CONSTRAINT " . idf_escape($conname) . " CHECK ($consrc)";
 		}
 		$return .= implode(",\n    ", $return_parts) . "\n)";
 
@@ -984,12 +988,12 @@ AND typelem = 0"
 
 		// comments for table & fields
 		if ($status['Comment']) {
-			$return .= "\n\nCOMMENT ON TABLE " . idf_escape($status['nspname']) . "." . idf_escape($status['Name']) . " IS " . q($status['Comment']) . ";";
+			$return .= "\n\nCOMMENT ON TABLE $ns." . idf_escape($status['Name']) . " IS " . q($status['Comment']) . ";";
 		}
 
 		foreach ($fields as $field_name => $field) {
 			if ($field['comment']) {
-				$return .= "\n\nCOMMENT ON COLUMN " . idf_escape($status['nspname']) . "." . idf_escape($status['Name']) . "." . idf_escape($field_name) . " IS " . q($field['comment']) . ";";
+				$return .= "\n\nCOMMENT ON COLUMN $ns." . idf_escape($status['Name']) . "." . idf_escape($field_name) . " IS " . q($field['comment']) . ";";
 			}
 		}
 
@@ -1015,8 +1019,16 @@ AND typelem = 0"
 	}
 
 
-	function use_sql($database) {
-		return "\connect " . idf_escape($database);
+	function use_sql($database, $style = "") {
+		$name = idf_escape($database);
+		$return = "";
+		if (preg_match('~CREATE~', $style)) {
+			if ($style == "DROP+CREATE") {
+				$return = "DROP DATABASE IF EXISTS $name;\n";
+			}
+			$return .= "CREATE DATABASE $name;\n"; //! get info from pg_database
+		}
+		return "$return\\connect $name";
 	}
 
 	function show_variables() {

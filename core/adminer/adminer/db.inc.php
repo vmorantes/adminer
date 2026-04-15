@@ -64,12 +64,13 @@ if (adminer()->homepage()) {
 			echo "<form action='' method='post'>\n";
 			if (support("table")) {
 				echo "<fieldset><legend>" . lang('Search data in tables') . " <span id='selected2'></span></legend><div>";
-				echo "<input type='search' name='query' value='" . h($_POST["query"]) . "'>";
+				echo html_select("op", adminer()->operators(), idx($_POST, "op", JUSH == "elastic" ? "should" : "LIKE %%"));
+				echo " <input type='search' name='query' value='" . h($_POST["query"]) . "'>";
 				echo script("qsl('input').onkeydown = partialArg(bodyKeydown, 'search');", "");
 				echo " <input type='submit' name='search' value='" . lang('Search') . "'>\n";
 				echo "</div></fieldset>\n";
 				if ($_POST["search"] && $_POST["query"] != "") {
-					$_GET["where"][0]["op"] = driver()->convertOperator("LIKE %%");
+					$_GET["where"][0]["op"] = $_POST["op"];
 					search_tables();
 				}
 			}
@@ -79,14 +80,27 @@ if (adminer()->homepage()) {
 			echo '<thead><tr class="wrap">';
 			echo '<td><input id="check-all" type="checkbox" class="jsonly">' . script("qs('#check-all').onclick = partial(formCheck, /^(tables|views)\[/);", "");
 			echo '<th>' . lang('Table');
-			echo '<td>' . lang('Engine') . doc_link(array('sql' => 'storage-engines.html'));
-			echo '<td>' . lang('Collation') . doc_link(array('sql' => 'charset-charsets.html', 'mariadb' => 'supported-character-sets-and-collations/'));
-			echo '<td>' . lang('Data Length') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'functions-admin.html#FUNCTIONS-ADMIN-DBOBJECT', 'oracle' => 'REFRN20286'));
-			echo '<td>' . lang('Index Length') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'functions-admin.html#FUNCTIONS-ADMIN-DBOBJECT'));
-			echo '<td>' . lang('Data Free') . doc_link(array('sql' => 'show-table-status.html'));
-			echo '<td>' . lang('Auto Increment') . doc_link(array('sql' => 'example-auto-increment.html', 'mariadb' => 'auto_increment/'));
-			echo '<td>' . lang('Rows') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'catalog-pg-class.html#CATALOG-PG-CLASS', 'oracle' => 'REFRN20286'));
-			echo (support("comment") ? '<td>' . lang('Comment') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'functions-info.html#FUNCTIONS-INFO-COMMENT-TABLE')) : '');
+			$columns = array("Engine" => array(lang('Engine') . doc_link(array('sql' => 'storage-engines.html'))));
+			if (collations()) {
+				$columns["Collation"] = array(lang('Collation') . doc_link(array('sql' => 'charset-charsets.html', 'mariadb' => 'supported-character-sets-and-collations/')));
+			}
+			if (function_exists('Adminer\alter_table')) {
+				$columns["Data_length"] = array(lang('Data Length') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'functions-admin.html#FUNCTIONS-ADMIN-DBOBJECT', 'oracle' => 'REFRN20286')), "create", lang('Alter table'));
+			}
+			if (support('indexes')) {
+				$columns["Index_length"] = array(lang('Index Length') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'functions-admin.html#FUNCTIONS-ADMIN-DBOBJECT')), "indexes", lang('Alter indexes'));
+			}
+			$columns["Data_free"] = array(lang('Data Free') . doc_link(array('sql' => 'show-table-status.html')), "edit", lang('New item'));
+			if (function_exists('Adminer\alter_table')) {
+				$columns["Auto_increment"] = array(lang('Auto Increment') . doc_link(array('sql' => 'example-auto-increment.html', 'mariadb' => 'auto_increment/')), "auto_increment=1&create", lang('Alter table'));
+			}
+			$columns["Rows"] = array(lang('Rows') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'catalog-pg-class.html#CATALOG-PG-CLASS', 'oracle' => 'REFRN20286')), "select", lang('Select data'));
+			if (support("comment")) {
+				$columns["Comment"] = array(lang('Comment') . doc_link(array('sql' => 'show-table-status.html', 'pgsql' => 'functions-info.html#FUNCTIONS-INFO-COMMENT-TABLE')));
+			}
+			foreach ($columns as $column) {
+				echo "<td>$column[0]";
+			}
 			echo "</thead>\n";
 
 			$tables = 0;
@@ -95,30 +109,20 @@ if (adminer()->homepage()) {
 				$id = h("Table-" . $name);
 				echo '<tr><td>' . checkbox(($view ? "views[]" : "tables[]"), $name, in_array("$name", $tables_views, true), "", "", "", $id); // "$name" to check numeric table names
 				echo '<th>' . (support("table") || support("indexes") ? "<a href='" . h(ME) . "table=" . urlencode($name) . "' title='" . lang('Show structure') . "' id='$id'>" . h($name) . '</a>' : h($name));
-				if ($view) {
-					echo '<td colspan="6"><a href="' . h(ME) . "view=" . urlencode($name) . '" title="' . lang('Alter view') . '">' . (preg_match('~materialized~i', $type) ? lang('Materialized view') : lang('View')) . '</a>';
+				if ($view && !preg_match('~materialized~i', $type)) {
+					$title = lang('View');
+					echo '<td colspan="6">' . (support("view") ? "<a href='" . h(ME) . "view=" . urlencode($name) . "' title='" . lang('Alter view') . "'>$title</a>" : $title);
 					echo '<td align="right"><a href="' . h(ME) . "select=" . urlencode($name) . '" title="' . lang('Select data') . '">?</a>';
 				} else {
-					foreach (
-						array(
-							"Engine" => array(),
-							"Collation" => array(),
-							"Data_length" => array("create", lang('Alter table')),
-							"Index_length" => array("indexes", lang('Alter indexes')),
-							"Data_free" => array("edit", lang('New item')),
-							"Auto_increment" => array("auto_increment=1&create", lang('Alter table')),
-							"Rows" => array("select", lang('Select data')),
-						) as $key => $link
-					) {
+					foreach ($columns as $key => $column) {
 						$id = " id='$key-" . h($name) . "'";
-						echo ($link ? "<td align='right'>" . (support("table") || $key == "Rows" || (support("indexes") && $key != "Data_length")
-							? "<a href='" . h(ME . "$link[0]=") . urlencode($name) . "'$id title='$link[1]'>?</a>"
-							: "<span$id>?</span>"
-						) : "<td id='$key-" . h($name) . "'>");
+						echo ($column[1]
+							? "<td align='right'><a href='" . h(ME . "$column[1]=") . urlencode($name) . "'$id title='$column[2]'>?</a>"
+							: "<td id='$key-" . h($name) . "'>"
+						);
 					}
 					$tables++;
 				}
-				echo (support("comment") ? "<td id='Comment-" . h($name) . "'>" : "");
 				echo "\n";
 			}
 
@@ -126,46 +130,51 @@ if (adminer()->homepage()) {
 			echo "<td>" . h(JUSH == "sql" ? get_val("SELECT @@default_storage_engine") : "");
 			echo "<td>" . h(db_collation(DB, collations()));
 			foreach (array("Data_length", "Index_length", "Data_free") as $key) {
-				echo "<td align='right' id='sum-$key'>";
+				echo ($columns[$key] ? "<td align='right' id='sum-$key'>" : "");
 			}
 			echo "\n";
 
 			echo "</table>\n";
+			echo script("ajaxSetHtml('" . js_escape(ME) . "script=db');");
 			echo "</div>\n";
 			if (!information_schema(DB)) {
-				echo "<div class='footer'><div>\n";
 				$vacuum = "<input type='submit' value='" . lang('Vacuum') . "'> " . on_help("'VACUUM'");
 				$optimize = "<input type='submit' name='optimize' value='" . lang('Optimize') . "'> " . on_help(JUSH == "sql" ? "'OPTIMIZE TABLE'" : "'VACUUM OPTIMIZE'");
-				echo "<fieldset><legend>" . lang('Selected') . " <span id='selected'></span></legend><div>"
-				. (JUSH == "sqlite" ? $vacuum . "<input type='submit' name='check' value='" . lang('Check') . "'> " . on_help("'PRAGMA integrity_check'")
+				$print = (JUSH == "sqlite" ? $vacuum . "<input type='submit' name='check' value='" . lang('Check') . "'> " . on_help("'PRAGMA integrity_check'")
 				: (JUSH == "pgsql" ? $vacuum . $optimize
 				: (JUSH == "sql" ? "<input type='submit' value='" . lang('Analyze') . "'> " . on_help("'ANALYZE TABLE'")
 					. $optimize
 					. "<input type='submit' name='check' value='" . lang('Check') . "'> " . on_help("'CHECK TABLE'")
 					. "<input type='submit' name='repair' value='" . lang('Repair') . "'> " . on_help("'REPAIR TABLE'")
 				: "")))
-				. "<input type='submit' name='truncate' value='" . lang('Truncate') . "'> " . on_help(JUSH == "sqlite" ? "'DELETE'" : "'TRUNCATE" . (JUSH == "pgsql" ? "'" : " TABLE'")) . confirm()
-				. "<input type='submit' name='drop' value='" . lang('Drop') . "'>" . on_help("'DROP TABLE'") . confirm() . "\n";
+				. (function_exists('Adminer\truncate_tables') ? "<input type='submit' name='truncate' value='" . lang('Truncate') . "'> " . on_help(JUSH == "sqlite" ? "'DELETE'" : "'TRUNCATE" . (JUSH == "pgsql" ? "'" : " TABLE'")) . confirm() : "")
+				. (function_exists('Adminer\drop_tables') ? "<input type='submit' name='drop' value='" . lang('Drop') . "'>" . on_help("'DROP TABLE'") . confirm() : "");
+				echo ($print ? "<div class='footer'><div>\n<fieldset><legend>" . lang('Selected') . " <span id='selected'></span></legend><div>$print\n</div></fieldset>\n" : "");
+
 				$databases = (support("scheme") ? adminer()->schemas() : adminer()->databases());
+				$script = "";
 				if (count($databases) != 1 && JUSH != "sqlite") {
+					echo "<fieldset><legend>" . lang('Move to other database') . " <span id='selected3'></span></legend><div>";
 					$db = (isset($_POST["target"]) ? $_POST["target"] : (support("scheme") ? $_GET["ns"] : DB));
-					echo "<p><label>" . lang('Move to other database') . ": ";
 					echo ($databases ? html_select("target", $databases, $db) : '<input name="target" value="' . h($db) . '" autocapitalize="off">');
 					echo "</label> <input type='submit' name='move' value='" . lang('Move') . "'>";
 					echo (support("copy") ? " <input type='submit' name='copy' value='" . lang('Copy') . "'> " . checkbox("overwrite", 1, $_POST["overwrite"], lang('overwrite')) : "");
-					echo "\n";
+					echo "</div></fieldset>\n";
+					$script = " selectCount('selected3', formChecked(this, /^(tables|views)\[/));";
 				}
 				echo "<input type='hidden' name='all' value=''>"; // used by trCheck()
-				echo script("qsl('input').onclick = function () { selectCount('selected', formChecked(this, /^(tables|views)\[/));" . (support("table") ? " selectCount('selected2', formChecked(this, /^tables\[/) || $tables);" : "") . " }");
+				echo script("qsl('input').onclick = function () { selectCount('selected', formChecked(this, /^(tables|views)\[/));"
+					. (support("table") ? " selectCount('selected2', formChecked(this, /^tables\[/) || $tables);" : "")
+					. "$script }")
+				;
 				echo input_token();
-				echo "</div></fieldset>\n";
 				echo "</div></div>\n";
 			}
 			echo "</form>\n";
 			echo script("tableCheck();");
 		}
 
-		echo "<p class='links'><a href='" . h(ME) . "create='>" . lang('Create table') . "</a>\n";
+		echo (function_exists('Adminer\alter_table') ? "<p class='links'><a href='" . h(ME) . "create='>" . lang('Create table') . "</a>\n" : '');
 		echo (support("view") ? "<a href='" . h(ME) . "view='>" . lang('Create view') . "</a>\n" : "");
 
 		if (support("routine")) {
@@ -238,10 +247,6 @@ if (adminer()->homepage()) {
 				}
 			}
 			echo '<p class="links"><a href="' . h(ME) . 'event=">' . lang('Create event') . "</a>\n";
-		}
-
-		if ($tables_list) {
-			echo script("ajaxSetHtml('" . js_escape(ME) . "script=db');");
 		}
 	}
 }

@@ -22,10 +22,18 @@ if ($comment != "") {
 	echo "<p class='nowrap'>" . lang('Comment') . ": " . h($comment) . "\n";
 }
 
-function tables_links($tables) {
+if ($fields) {
+	adminer()->tableStructurePrint($fields, $table_status);
+}
+
+/** Print links to tables
+* @param list<array{table: string, ns: string}> $tables
+*/
+function tables_links(array $tables): void {
 	echo "<ul>\n";
-	foreach ($tables as $table) {
-		echo "<li><a href='" . h(ME . "table=" . urlencode($table)) . "'>" . h($table) . "</a>";
+	foreach ($tables as $row) {
+		$link = preg_replace('~ns=[^&]*~', "ns=" . urlencode($row["ns"]), ME);
+		echo "<li><a href='" . h($link . "table=" . urlencode($row["table"])) . "'>" . ($row["ns"] != $_GET["ns"] ? "<b>" . h($row["ns"]) . "</b>." : "") . h($row["table"]) . "</a>";
 	}
 	echo "</ul>\n";
 }
@@ -34,8 +42,6 @@ $inherits = driver()->inheritsFrom($TABLE);
 if ($inherits) {
 	echo "<h3>" . lang('Inherits from') . "</h3>\n";
 	tables_links($inherits);
-} elseif ($fields) {
-	adminer()->tableStructurePrint($fields, $table_status);
 }
 
 if (support("indexes") && driver()->supportsIndex($table_status)) {
@@ -110,7 +116,7 @@ if (support(is_view($table_status) ? "view_trigger" : "trigger")) {
 
 $inherited = driver()->inheritedTables($TABLE);
 if ($inherited) {
-	echo "<h3 id='partitions'>" . lang('Partitions') . "</h3>\n";
+	echo "<h3 id='partitions'>" . lang('Inherited by') . "</h3>\n";
 	$partition = driver()->partitionsInfo($TABLE);
 	if ($partition) {
 		echo "<p><code class='jush-" . JUSH . "'>BY " . h("$partition[partition_by]($partition[partition])") . "</code>\n";

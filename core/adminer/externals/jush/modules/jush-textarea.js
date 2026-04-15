@@ -162,8 +162,9 @@ jush.textarea = (function () {
 		}
 	}
 	
+	const maxSize = 8;
 	const acEl = document.createElement('select');
-	acEl.size = 8;
+	acEl.size = maxSize;
 	acEl.className = 'jush-autocomplete';
 	acEl.style.position = 'absolute';
 	acEl.style.zIndex = 1;
@@ -207,6 +208,7 @@ jush.textarea = (function () {
 						}
 					}
 					acEl.selectedIndex = select;
+					acEl.size = Math.min(Math.max(acEl.options.length, 2), maxSize);
 					positionAutocomplete();
 					acEl.style.display = '';
 				}
@@ -243,7 +245,10 @@ jush.textarea = (function () {
 			const offset = +acEl.options[acEl.selectedIndex].value;
 			forceNewUndo = true;
 			pre.lastPos = findSelPos(pre);
-			range.setStart(range.startContainer, Math.max(0, range.startOffset - offset));
+			const start = findOffset(pre, pre.lastPos - offset);
+			if (start) {
+				range.setStart(start.container, start.offset);
+			}
 			document.execCommand('insertText', false, insert);
 			openAutocomplete(pre);
 		}

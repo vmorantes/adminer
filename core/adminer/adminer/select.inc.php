@@ -353,17 +353,14 @@ if (!$columns && support("table")) {
 						$desc = "&desc%5B0%5D=1";
 						echo "<th id='th[" . h(bracket_escape($key)) . "]'>" . script("mixin(qsl('th'), {onmouseover: partial(columnMouse), onmouseout: partial(columnMouse, ' hidden')});", "");
 						$fun = apply_sql_function($val["fun"], $name); //! columns looking like functions
-						$sortable = isset($field["privileges"]["order"]) || $fun;
-						echo ($sortable ? "<a href='" . h($href . ($order[0] == $column || $order[0] == $key || (!$order && $is_group && $group[0] == $column) ? $desc : '')) . "'>$fun</a>" : $fun); // $order[0] == $key - COUNT(*)
-						echo "<span class='column hidden'>";
-						if ($sortable) {
-							echo "<a href='" . h($href . $desc) . "' title='" . lang('descending') . "' class='text'> ↓</a>";
-						}
+						$sortable = isset($field["privileges"]["order"]) || $fun != $name;
+						echo ($sortable ? "<a href='" . h($href . ($order[0] == $column || $order[0] == $key ? $desc : '')) . "'>$fun</a>" : $fun); // $order[0] == $key - COUNT(*)
+						$menu = ($sortable ? "<a href='" . h($href . $desc) . "' title='" . lang('descending') . "' class='text'> ↓</a>" : '');
 						if (!$val["fun"] && isset($field["privileges"]["where"])) {
-							echo '<a href="#fieldset-search" title="' . lang('Search') . '" class="text jsonly"> =</a>';
-							echo script("qsl('a').onclick = partial(selectSearch, '" . js_escape($key) . "');");
+							$menu .= '<a href="#fieldset-search" title="' . lang('Search') . '" class="text jsonly"> =</a>';
+							$menu .= script("qsl('a').onclick = partial(selectSearch, '" . js_escape($key) . "');");
 						}
-						echo "</span>";
+						echo ($menu ? "<span class='column hidden'>$menu</span>" : "");
 					}
 					$functions[$key] = $val["fun"];
 					next($select);
@@ -417,13 +414,12 @@ if (!$columns && support("table")) {
 					if (isset($names[$key])) {
 						$column = current($select);
 						$field = (array) $fields[$key];
-						$val = driver()->value($val, $field);
 						if ($val != "" && (!isset($email_fields[$key]) || $email_fields[$key] != "")) {
 							$email_fields[$key] = (is_mail($val) ? $names[$key] : ""); //! filled e-mails can be contained on other pages
 						}
 
 						$link = "";
-						if (preg_match('~blob|bytea|raw|file~', $field["type"]) && $val != "") {
+						if (is_blob($field) && $val != "") {
 							$link = ME . 'download=' . urlencode($TABLE) . '&field=' . urlencode($key) . $unique_idf;
 						}
 						if (!$link && $val !== null) { // link related items
@@ -503,7 +499,7 @@ if (!$columns && support("table")) {
 						if (intval($found_rows) < max(1e4, 2 * ($page + 1) * $limit)) {
 							// slow with big tables
 							$found_rows = first(slow_query(count_rows($TABLE, $where, $is_group, $group)));
-						} else {
+						} elseif (JUSH == 'sql' || JUSH == 'pgsql') {
 							$exact_count = false;
 						}
 					}
@@ -595,9 +591,10 @@ if (!$columns && support("table")) {
 				echo "<a href='#import'>" . lang('Import') . "</a>";
 				echo script("qsl('a').onclick = partial(toggle, 'import');", "");
 				echo "<span id='import'" . ($_POST["import"] ? "" : " class='hidden'") . ">: ";
-				echo "<input type='file' name='csv_file'> ";
-				echo html_select("separator", array("csv" => "CSV,", "csv;" => "CSV;", "tsv" => "TSV"), $adminer_import["format"]);
-				echo " <input type='submit' name='import' value='" . lang('Import') . "'>";
+				echo file_input("<input type='file' name='csv_file'> "
+					. html_select("separator", array("csv" => "CSV,", "csv;" => "CSV;", "tsv" => "TSV"), $adminer_import["format"])
+					. " <input type='submit' name='import' value='" . lang('Import') . "'>")
+				;
 				echo "</span>";
 			}
 

@@ -16,9 +16,9 @@ if (!defined('Adminer\DRIVER')) {
 				parent::init();
 			}
 
-			function attach(?string $server, string $username, string $password): string {
+			function attach(string $server, string $username, string $password): string {
 				mysqli_report(MYSQLI_REPORT_OFF); // stays between requests, not required since PHP 5.3.4
-				list($host, $port) = explode(":", $server, 2); // part after : is used for port or socket
+				list($host, $port) = host_port($server);
 				$ssl = adminer()->connectSsl();
 				if ($ssl) {
 					$this->ssl_set($ssl['key'], $ssl['cert'], $ssl['ca'], '', '');
@@ -32,7 +32,7 @@ if (!defined('Adminer\DRIVER')) {
 					(is_numeric($port) ? null : $port),
 					($ssl ? ($ssl['verify'] !== false ? 2048 : 64) : 0) // 2048 - MYSQLI_CLIENT_SSL, 64 - MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT (not available before PHP 5.6.16)
 				);
-				$this->options(MYSQLI_OPT_LOCAL_INFILE, false);
+				$this->options(MYSQLI_OPT_LOCAL_INFILE, 0);
 				return ($return ? '' : $this->error);
 			}
 
@@ -58,14 +58,14 @@ if (!defined('Adminer\DRIVER')) {
 		class Db extends SqlDb {
 			/** @var resource */ private $link;
 
-			function attach(?string $server, string $username, string $password): string {
+			function attach(string $server, string $username, string $password): string {
 				if (ini_bool("mysql.allow_local_infile")) {
 					return lang('Disable %s or enable %s or %s extensions.', "'mysql.allow_local_infile'", "MySQLi", "PDO_MySQL");
 				}
 				$this->link = @mysql_connect(
 					($server != "" ? $server : ini_get("mysql.default_host")),
-					("$server$username" != "" ? $username : ini_get("mysql.default_user")),
-					("$server$username$password" != "" ? $password : ini_get("mysql.default_password")),
+					($server . $username != "" ? $username : ini_get("mysql.default_user")),
+					($server . $username . $password != "" ? $password : ini_get("mysql.default_password")),
 					true,
 					131072 // CLIENT_MULTI_RESULTS for CALL
 				);
@@ -158,7 +158,7 @@ if (!defined('Adminer\DRIVER')) {
 		class Db extends PdoDb {
 			public $extension = "PDO_MySQL";
 
-			function attach(?string $server, string $username, string $password): string {
+			function attach(string $server, string $username, string $password): string {
 				$options = array(\PDO::MYSQL_ATTR_LOCAL_INFILE => false);
 				$ssl = adminer()->connectSsl();
 				if ($ssl) {
@@ -175,8 +175,9 @@ if (!defined('Adminer\DRIVER')) {
 						$options[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = $ssl['verify'];
 					}
 				}
+				list($host, $port) = host_port($server);
 				return $this->dsn(
-					"mysql:charset=utf8;host=" . str_replace(":", ";unix_socket=", preg_replace('~:(\d)~', ';port=\1', $server)),
+					"mysql:charset=utf8;host=$host" . ($port ? (is_numeric($port) ? ";port=" : ";unix_socket=") . $port : ""),
 					$username,
 					$password,
 					$options
@@ -211,7 +212,7 @@ if (!defined('Adminer\DRIVER')) {
 		public $functions = array("char_length", "date", "from_unixtime", "lower", "round", "floor", "ceil", "sec_to_time", "time_to_sec", "upper");
 		public $grouping = array("avg", "count", "count distinct", "group_concat", "max", "min", "sum");
 
-		static function connect(?string $server, string $username, string $password) {
+		static function connect(string $server, string $username, string $password) {
 			$connection = parent::connect($server, $username, $password);
 			if (is_string($connection)) {
 				if (function_exists('iconv') && !is_utf8($connection) && strlen($s = iconv("windows-1250", "utf-8", $connection)) > strlen($connection)) { // windows-1250 - most common Windows encoding
@@ -340,7 +341,7 @@ if (!defined('Adminer\DRIVER')) {
 
 		function partitionsInfo(string $table): array {
 			$from = "FROM information_schema.PARTITIONS WHERE TABLE_SCHEMA = " . q(DB) . " AND TABLE_NAME = " . q($table);
-			$result = connection()->query("SELECT PARTITION_METHOD, PARTITION_EXPRESSION, PARTITION_ORDINAL_POSITION $from ORDER BY PARTITION_ORDINAL_POSITION DESC LIMIT 1");
+			$result = $this->conn->query("SELECT PARTITION_METHOD, PARTITION_EXPRESSION, PARTITION_ORDINAL_POSITION $from ORDER BY PARTITION_ORDINAL_POSITION DESC LIMIT 1");
 			$return = array();
 			list($return["partition_by"], $return["partition"], $return["partitions"]) = $result->fetch_row();
 			$partitions = get_key_vals("SELECT PARTITION_NAME, PARTITION_DESCRIPTION $from AND PARTITION_NAME != '' ORDER BY PARTITION_ORDINAL_POSITION");
@@ -457,7 +458,7 @@ if (!defined('Adminer\DRIVER')) {
 
 	/** Get table status
 	* @param bool $fast return only "Name", "Engine" and "Comment" fields
-	* @return TableStatus[]
+	* @return array<string, TableStatus>
 	*/
 	function table_status(string $name = "", bool $fast = false): array {
 		$return = array();
@@ -695,7 +696,7 @@ if (!defined('Adminer\DRIVER')) {
 	* @param string $name new name
 	* @param list<array{string, list<string>, string}> $fields of [$orig, $process_field, $after]
 	* @param string[] $foreign
-	* @param numeric-string $auto_increment
+	* @param numeric-string|'' $auto_increment
 	* @param ?Partitions $partitioning null means remove partitioning
 	* @return Result|bool
 	*/
@@ -892,43 +893,34 @@ if (!defined('Adminer\DRIVER')) {
 	* @return Routine
 	*/
 	function routine(string $name, string $type): array {
-		$aliases = array("bool", "boolean", "integer", "double precision", "real", "dec", "numeric", "fixed", "national char", "national varchar");
-		$space = "(?:\\s|/\\*[\s\S]*?\\*/|(?:#|-- )[^\n]*\n?|--\r?\n)";
-		$enum = driver()->enumLength;
-		$type_pattern = "((" . implode("|", array_merge(array_keys(driver()->types()), $aliases)) . ")\\b(?:\\s*\\(((?:[^'\")]|$enum)++)\\))?"
-			. "\\s*(zerofill\\s*)?(unsigned(?:\\s+zerofill)?)?)(?:\\s*(?:CHARSET|CHARACTER\\s+SET)\\s*['\"]?([^'\"\\s,]+)['\"]?)?";
-		$pattern = "$space*(" . ($type == "FUNCTION" ? "" : driver()->inout) . ")?\\s*(?:`((?:[^`]|``)*)`\\s*|\\b(\\S+)\\s+)$type_pattern";
-		$create = get_val("SHOW CREATE $type " . idf_escape($name), 2);
-		preg_match("~\\(((?:$pattern\\s*,?)*)\\)\\s*" . ($type == "FUNCTION" ? "RETURNS\\s+$type_pattern\\s+" : "") . "(.*)~is", $create, $match);
-		$fields = array();
-		preg_match_all("~$pattern\\s*,?~is", $match[1], $matches, PREG_SET_ORDER);
-		foreach ($matches as $param) {
-			$fields[] = array(
-				"field" => str_replace("``", "`", $param[2]) . $param[3],
-				"type" => strtolower($param[5]),
-				"length" => preg_replace_callback("~$enum~s", 'Adminer\normalize_enum', $param[6]),
-				"unsigned" => strtolower(preg_replace('~\s+~', ' ', trim("$param[8] $param[7]"))),
-				"null" => true,
-				"full_type" => $param[4],
-				"inout" => strtoupper($param[1]),
-				"collation" => strtolower($param[9]),
-			);
+		$fields = get_rows("SELECT
+	PARAMETER_NAME field,
+	DATA_TYPE type,
+	CHARACTER_MAXIMUM_LENGTH length,
+	REGEXP_REPLACE(DTD_IDENTIFIER, '^[^ ]+ ', '') `unsigned`,
+	1 `null`,
+	DTD_IDENTIFIER full_type,
+	PARAMETER_MODE `inout`,
+	CHARACTER_SET_NAME collation
+FROM information_schema.PARAMETERS
+WHERE SPECIFIC_SCHEMA = DATABASE() AND ROUTINE_TYPE = '$type' AND SPECIFIC_NAME = " . q($name) . "
+ORDER BY ORDINAL_POSITION");
+		$return = connection()->query("SELECT ROUTINE_COMMENT comment, ROUTINE_DEFINITION definition, 'SQL' language
+FROM information_schema.ROUTINES
+WHERE ROUTINE_SCHEMA = DATABASE() AND ROUTINE_TYPE = '$type' AND ROUTINE_NAME = " . q($name))->fetch_assoc();
+		if ($fields && $fields[0]['field'] == '') {
+			$return['returns'] = array_shift($fields);
 		}
-		return array(
-			"fields" => $fields,
-			"comment" => get_val("SELECT ROUTINE_COMMENT FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE() AND ROUTINE_NAME = " . q($name)),
-		) + ($type != "FUNCTION" ? array("definition" => $match[11]) : array(
-			"returns" => array("type" => $match[12], "length" => $match[13], "unsigned" => $match[15], "collation" => $match[16]),
-			"definition" => $match[17],
-			"language" => "SQL", // available in information_schema.ROUTINES.BODY_STYLE
-		));
+		$return['fields'] = $fields;
+		/** @phpstan-var Routine */
+		return $return;
 	}
 
 	/** Get list of routines
 	* @return list<string[]> ["SPECIFIC_NAME" => , "ROUTINE_NAME" => , "ROUTINE_TYPE" => , "DTD_IDENTIFIER" => ]
 	*/
 	function routines(): array {
-		return get_rows("SELECT ROUTINE_NAME AS SPECIFIC_NAME, ROUTINE_NAME, ROUTINE_TYPE, DTD_IDENTIFIER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE()");
+		return get_rows("SELECT SPECIFIC_NAME, ROUTINE_NAME, ROUTINE_TYPE, DTD_IDENTIFIER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE()");
 	}
 
 	/** Get list of available routine languages
@@ -983,8 +975,17 @@ if (!defined('Adminer\DRIVER')) {
 	}
 
 	/** Get SQL command to change database */
-	function use_sql(string $database): string {
-		return "USE " . idf_escape($database);
+	function use_sql(string $database, string $style = ""): string {
+		$name = idf_escape($database);
+		$return = "";
+		if (preg_match('~CREATE~', $style) && ($create = get_val("SHOW CREATE DATABASE $name", 1))) {
+			set_utf8mb4($create);
+			if ($style == "DROP+CREATE") {
+				$return = "DROP DATABASE IF EXISTS $name;\n";
+			}
+			$return .= "$create;\n";
+		}
+		return $return . "USE $name";
 	}
 
 	/** Get SQL commands to create triggers */
@@ -1067,11 +1068,11 @@ if (!defined('Adminer\DRIVER')) {
 	}
 
 	/** Kill a process
-	* @param numeric-string $val
+	* @param numeric-string $id
 	* @return Result|bool
 	*/
-	function kill_process(string $val) {
-		return queries("KILL " . number($val));
+	function kill_process(string $id) {
+		return queries("KILL " . number($id));
 	}
 
 	/** Return query to get connection ID */

@@ -287,10 +287,6 @@ if (isset($_GET["elastic"])) {
 
 			return !!$this->conn->affected_rows;
 		}
-
-		function convertOperator($operator): string {
-			return $operator == "LIKE %%" ? "should" : $operator;
-		}
 	}
 
 	function support($feature) {
@@ -410,6 +406,11 @@ if (isset($_GET["elastic"])) {
 
 	function is_view($table_status) {
 		return $table_status["Engine"] == "view";
+	}
+
+	function view(string $name): array {
+		$return = connection()->rootQuery("_alias/" . urlencode($name));
+		return array("select" => implode("\n", array_keys($return)));
 	}
 
 	function error() {
@@ -533,15 +534,18 @@ if (isset($_GET["elastic"])) {
 		}
 	}
 
-	/** Drop types
-	 * @param list<string> $tables
-	 */
+	function drop_views(array $tables): bool {
+		$return = connection()->rootQuery('_aliases', array('actions' => array_map(function ($table) {
+			return array('remove' => array('index' => '*', 'alias' => $table));
+		}, $tables)), 'POST');
+		return $return && !$return['errors'];
+	}
+
 	function drop_tables(array $tables): bool {
 		$return = true;
 		foreach ($tables as $table) { //! convert to bulk api
 			$return = $return && connection()->rootQuery(urlencode($table), null, 'DELETE');
 		}
-
 		return $return;
 	}
 

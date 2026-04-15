@@ -4,9 +4,13 @@ namespace Adminer;
 if (!$error && $_POST["export"]) {
 	save_settings(array("output" => $_POST["output"], "format" => $_POST["format"]), "adminer_import");
 	dump_headers("sql");
-	adminer()->dumpTable("", "");
-	adminer()->dumpData("", "table", $_POST["query"]);
-	adminer()->dumpFooter();
+	if ($_POST["format"] == "sql") {
+		echo "$_POST[query]\n";
+	} else {
+		adminer()->dumpTable("", "");
+		adminer()->dumpData("", "table", $_POST["query"]);
+		adminer()->dumpFooter();
+	}
 	exit;
 }
 
@@ -53,7 +57,7 @@ if (!$error && $_POST) {
 		}
 
 		$space = "(?:\\s|/\\*[\s\S]*?\\*/|(?:#|$line_comment)[^\n]*\n?|--\r?\n)";
-		$delimiter = ";";
+		$delimiter = driver()->delimiter;
 		$offset = 0;
 		$empty = true;
 		$connection2 = connect(); // connection for exploring indexes and EXPLAIN (to not replace FOUND_ROWS()) //! PDO - silent error
@@ -65,11 +69,9 @@ if (!$error && $_POST) {
 		}
 		$commands = 0;
 		$errors = array();
-		$parse = '[\'"' . (JUSH == "sql" ? '`#' : (JUSH == "sqlite" ? '`[' : (JUSH == "mssql" ? '[' : ''))) . ']|/\*|' . $line_comment . '|$' . (JUSH == "pgsql" ? '|\$[^$]*\$' : '');
+		$parse = '[\'"' . (JUSH == "sql" ? '`#' : (JUSH == "sqlite" ? '`[' : (JUSH == "mssql" ? '[' : ''))) . ']|/\*|' . $line_comment . '|$' . (JUSH == "pgsql" ? '|\$([a-zA-Z]\w*)?\$' : '');
 		$total_start = microtime(true);
 		$adminer_export = get_settings("adminer_import"); // this doesn't offer SQL export so we match the import/export style at select
-		$dump_format = adminer()->dumpFormat();
-		unset($dump_format["sql"]);
 
 		while ($query != "") {
 			if (!$offset && preg_match("~^$space*+DELIMITER\\s+(\\S+)~i", $query, $match)) {
@@ -174,7 +176,7 @@ if (!$error && $_POST) {
 											$id = "export-$commands";
 											echo ", <a href='#$id'>" . lang('Export') . "</a>" . script("qsl('a').onclick = partial(toggle, '$id');", "") . "<span id='$id' class='hidden'>: "
 												. html_select("output", adminer()->dumpOutput(), $adminer_export["output"]) . " "
-												. html_select("format", $dump_format, $adminer_export["format"])
+												. html_select("format", adminer()->dumpFormat(), $adminer_export["format"])
 												. input_hidden("query", $q)
 												. "<input type='submit' name='export' value='" . lang('Export') . "'>" . input_token() . "</span>\n"
 												. "</form>\n"
@@ -248,12 +250,9 @@ if (!isset($_GET["import"])) {
 	echo lang('Limit rows') . ": <input type='number' name='limit' class='size' value='" . h($_POST ? $_POST["limit"] : $_GET["limit"]) . "'>\n";
 
 } else {
-	echo "<fieldset><legend>" . lang('File upload') . "</legend><div>";
 	$gz = (extension_loaded("zlib") ? "[.gz]" : "");
-	echo (ini_bool("file_uploads")
-		? "SQL$gz (&lt; " . ini_get("upload_max_filesize") . "B): <input type='file' name='sql_file[]' multiple>\n$execute" // ignore post_max_size because it is for all form fields together and bytes computing would be necessary
-		: lang('File uploads are disabled.')
-	);
+	echo "<fieldset><legend>" . lang('File upload') . "</legend><div>";
+	echo file_input("SQL$gz: <input type='file' name='sql_file[]' multiple>\n$execute");
 	echo "</div></fieldset>\n";
 	$importServerPath = adminer()->importServerPath();
 	if ($importServerPath) {

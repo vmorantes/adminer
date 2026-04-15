@@ -19,3 +19,6 @@ if(!defined('_DEV_MODE_')){
 //[Line 358]
 $filename = __DIR__ . "../../../adminer.php";
 ```
+## v5.4.2
+
+- Sin modificaciones al core adicionales.

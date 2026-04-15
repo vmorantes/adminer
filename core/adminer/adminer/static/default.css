@@ -57,6 +57,7 @@ input.wayoff { left: -1000px; position: absolute; }
 .date { color: #7F007F; }
 .enum { color: #007F7F; }
 .binary { color: red; }
+.odds tbody tr { background: var(--bg); }
 .odds tbody tr:nth-child(2n) { background: #F5F5F5; }
 .js .checkable .checked td, .js .checkable .checked th { background: var(--lit); }
 .time { color: silver; font-size: 70%; }
@@ -128,14 +129,18 @@ input.wayoff { left: -1000px; position: absolute; }
 	.js .foot { display: none; }
 	.js #menuopen { display: block; position: absolute; top: 3px; left: 6px; }
 	.nojs #menu { position: static; }
+	.rtl.js #foot { left: auto; right: 0; }
 	.rtl .pages { right: auto; }
-	.rtl #content { margin-right: 10px; }
-	.rtl #breadcrumb { right: auto; }
+	.rtl.js #menuopen { left: auto; right: 6px; }
+	.rtl #content { margin-left: 0 !important; margin-right: 10px; }
+	.rtl #breadcrumb { left: auto !important; right: 48px; }
 }
 
 @media print {
-	#lang, #menu { display: none; }
+	#lang, #menu, .logout { display: none; }
 	#content { margin-left: 1em; }
 	#breadcrumb { left: 1em; }
+	.rtl #content { margin-left: auto; margin-right: 1em; }
+	.rtl #breadcrumb { left: auto; right: 1em; }
 	.nowrap td, .nowrap th, td.nowrap { white-space: normal; }
 }

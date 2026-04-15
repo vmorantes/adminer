@@ -90,7 +90,7 @@ class AdminerSqlGemini extends Adminer\Plugin
             '' => 'Generación de comandos SQL con Google Gemini AI',
             'Ask Gemini' => 'Preguntar a Gemini',
             'Just a sec...' => 'Un momento...',
-			'Please enter a question' => 'Por favor, introduce una pregunta',
+            'Please enter a question' => 'Por favor, introduce una pregunta',
         ],
     ];
 }

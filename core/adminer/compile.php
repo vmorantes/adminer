@@ -47,7 +47,7 @@ function put_file($match) {
 		// check function definition in drivers
 		if ($vendor != "mysql") {
 			preg_match_all(
-				'~\bfunction ([^(]+)~',
+				'~\bfunction (?!alter_table|drop_tables|truncate_tables)([^(]+)~', // used for feature detection
 				preg_replace('~class Driver.*\n\t}~sU', '', file_get_contents(__DIR__ . "/adminer/drivers/mysql.inc.php")),
 				$matches
 			); //! respect context (extension, class)
@@ -98,7 +98,7 @@ function put_file($match) {
 				echo "lang() not found\n";
 			}
 		} else {
-			$return = preg_replace('~// not used in a single language version from here\n.*~s', '', $return);
+			$return = preg_replace('~// not used in a single language version from here.*~s', '', $return);
 			$return = preg_replace_callback('~(\$pos = (.+\n).+;)~sU', function ($match) {
 				return "\$pos = $match[2]\t\t\t: " . (preg_match("~'$_SESSION[lang]'.* \\? (.+)\n~U", $match[1], $match2) ? $match2[1] : "1") . "\n\t\t);";
 			}, $return);
@@ -336,14 +336,14 @@ $file = str_replace("\r", "", $file);
 if ($_SESSION["lang"]) {
 	// single language version
 	$file = preg_replace_callback("~(<\\?php\\s*echo )?(?<!>)lang\\('((?:[^\\\\']+|\\\\.)*)'([,)])(;\\s*\\?>)?~s", 'remove_lang', $file);
-	$file = str_replace("switch_lang();", "", $file);
-	$file = str_replace('<?php echo LANG; ?>', $_SESSION["lang"], $file);
+$file = str_replace("switch_lang();", "", $file);
+$file = str_replace('<?php echo LANG; ?>', $_SESSION["lang"], $file);
 }
 $file = str_replace('echo script_src("static/editing.js");' . "\n", "", $file); // merged into functions.js
 $file = preg_replace('~\s+echo script_src\("\.\./externals/jush/modules/jush-(autocomplete-sql|textarea|txt|js|" \. JUSH \. ")\.js", true\);~', '', $file); // merged into jush.js
 $file = preg_replace('~echo .*/jush(-dark)?.css\'>.*~', '', $file); // merged into default.css or dark.css
 if (function_exists('stripTypes')) {
-	$file = stripTypes($file);
+$file = stripTypes($file);
 }
 $file = preg_replace_callback("~compile_file\\('([^']+)'(?:, '([^']*)')?\\)~", 'compile_file', $file); // integrate static files
 $replace = 'preg_replace("~\\\\\\\\?.*~", "", ME) . "?file=\1&version=' . Adminer\VERSION . '"';
@@ -352,7 +352,7 @@ $file = preg_replace('~"\.\./adminer/static/(functions\.js)"~', $replace, $file)
 $file = preg_replace('~\.\./adminer/static/([^\'"]*)~', '" . h(' . $replace . ') . "', $file);
 $file = preg_replace('~"\.\./externals/jush/modules/(jush\.js)"~', $replace, $file);
 if (function_exists('phpShrink')) {
-	$file = phpShrink($file);
+$file = phpShrink($file);
 }
 
 $filename = __DIR__ . "../../../adminer.php";

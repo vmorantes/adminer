@@ -16,7 +16,7 @@ jush.autocompleteSql = function (esc, tablesColumns) {
 		'^UPDATE \\w+ ': ['SET'],
 		'^UPDATE \\w+ SET .+ ': ['?WHERE'],
 		'^DELETE FROM \\w+ ': ['WHERE'],
-		' JOIN \\w+ ': ['ON', 'USING'],
+		' JOIN \\w+(( AS)? (?!(ON|USING|AS) )\\w+)? ': ['ON', 'USING'],
 		'\\bSELECT ': ['*', 'DISTINCT'],
 		'\\bSELECT .+ ': ['?FROM'],
 		'\\bSELECT (?!.* (WHERE|GROUP BY|HAVING|ORDER BY|LIMIT) ).+ FROM .+ ': ['INNER JOIN', 'LEFT JOIN', '?WHERE'],
@@ -103,7 +103,7 @@ jush.autocompleteSql = function (esc, tablesColumns) {
 								continue;
 							}
 						}
-						if (keyword.length != before.length && keyword.substring(0, before.length).toUpperCase() == before.toUpperCase()) {
+						if (keyword.length > before.length && keyword.toUpperCase().startsWith(before.toUpperCase())) {
 							const isCol = (keywords[re] == columns || keywords[re] == thisColumns);
 							ac[keyword + (isCol ? '' : ' ')] = before.length;
 						}

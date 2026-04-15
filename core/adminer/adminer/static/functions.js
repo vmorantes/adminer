@@ -96,29 +96,15 @@ function cookie(assign, days) {
 
 /** Verify current Adminer version
 * @param string
-* @param string own URL base
-* @param string
 */
-function verifyVersion(current, url, token) {
+function verifyVersion(current) {
 	cookie('adminer_version=0', 1);
-	const iframe = document.createElement('iframe');
-	iframe.src = 'https://www.adminer.org/version/?current=' + current;
-	iframe.frameBorder = 0;
-	iframe.marginHeight = 0;
-	iframe.scrolling = 'no';
-	iframe.style.width = '7ex';
-	iframe.style.height = '1.25em';
-	iframe.style.display = 'none';
-	addEventListener('message', event => {
-		if (event.origin == 'https://www.adminer.org') {
-			const match = /version=(.+)/.exec(event.data);
-			if (match) {
-				cookie('adminer_version=' + match[1], 1);
-				ajax(url + 'script=version', () => { }, event.data + '&token=' + token);
-			}
-		}
-	}, false);
-	qs('#version').appendChild(iframe);
+	// do not send X-Requested-With to avoid preflight
+	fetch('https://www.adminer.org/version/?current=' + current).then(async response => {
+		const json = await response.json();
+		cookie('adminer_version=' + (json.version || current), 7); // empty if there's no newer version
+		qs('#version').textContent = json.version;
+	});
 }
 
 /** Get value of select
@@ -235,8 +221,8 @@ function formChecked(input, name) {
 function tableClick(event, click) {
 	const td = parentTag(event.target, 'td');
 	let text;
-	if (td && (text = td.getAttribute('data-text'))) {
-		if (selectClick.call(td, event, +text, td.getAttribute('data-warning'))) {
+	if (td && (text = td.dataset.text)) {
+		if (selectClick.call(td, event, +text, td.dataset.warning)) {
 			return;
 		}
 	}
@@ -525,14 +511,14 @@ function functionChange() {
 		if (selectValue(this)) {
 			if (input.origType === undefined) {
 				input.origType = input.type;
-				input.origMaxLength = input.getAttribute('data-maxlength');
+				input.origMaxLength = input.dataset.maxlength;
 			}
-			input.removeAttribute('data-maxlength');
+			delete input.dataset.maxlength;
 			input.type = 'text';
 		} else if (input.origType) {
 			input.type = input.origType;
 			if (input.origMaxLength >= 0) {
-				input.setAttribute('data-maxlength', input.origMaxLength);
+				input.dataset.maxlength = input.origMaxLength;
 			}
 		}
 		oninput({target: input});
@@ -736,9 +722,10 @@ function selectLoadMore(limit, loading) {
 		return !ajax(href, request => {
 			const tbody = document.createElement('tbody');
 			tbody.innerHTML = request.responseText;
+			adminerHighlighter(qsa('code', tbody));
 			qs('#table').appendChild(tbody);
 			if (tbody.children.length < limit) {
-				a.parentNode.removeChild(a);
+				a.remove();
 			} else {
 				a.href = href.replace(/\d+$/, page => +page + 1);
 				a.innerHTML = title;
@@ -843,7 +830,7 @@ function cloneNode(el) {
 
 oninput = event => {
 	const target = event.target;
-	const maxLength = target.getAttribute('data-maxlength');
+	const maxLength = target.dataset.maxlength;
 	alterClass(target, 'maxlength', target.value && maxLength != null && target.value.length > maxLength); // maxLength could be 0
 };
 
