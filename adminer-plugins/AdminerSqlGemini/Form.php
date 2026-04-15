@@ -1,9 +1,17 @@
 <?php
     $textAreaPlaceHolder = $this->lang('Ask Gemini');
+    $previousQuestion = Adminer\h($_POST["gemini"]);
 ?>
 
-<?= '<p>' ?><textarea name='gemini' rows='5' cols='50' placeholder='<?= $textAreaPlaceHolder ?>'><?= Adminer\h($_POST["gemini"]) ?></textarea>
-<?= '<p>' ?><input type='button' value='Gemini'>
+<p>
+    <hr>
+    <br>
+    <textarea name='gemini' rows='5' cols='50' placeholder='<?= $textAreaPlaceHolder ?>'><?= $previousQuestion ?></textarea>
+    <br>
+    <input type='button' value='Gemini'>
+    <br><br>
+    <hr>
+</p>
 
 <script <?= Adminer\nonce(); ?>>
 const geminiText = qsl('textarea');
@@ -15,7 +23,11 @@ function setSqlareaValue(value) {
     sqlarea.onchange && sqlarea.onchange();
 }
 geminiButton.onclick = () => {
-    setSqlareaValue('-- <?php echo $this->lang('Just a sec...'); ?>');
+    if (geminiText.value == '') {
+        alert('<?= $this->lang('Please enter a question'); ?>');
+        return false
+    }
+    setSqlareaValue('-- <?= $this->lang('Just a sec...'); ?>');
     ajax(
         '',
         req => setSqlareaValue(req.responseText),
