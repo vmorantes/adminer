@@ -22,3 +22,8 @@ $filename = __DIR__ . "../../../adminer.php";
 ## v5.4.2
 
 - Sin modificaciones al core adicionales.
+- adminer-plugins/AdminerDisplayForeignKeyName.php
+```php
+//[Line 57]
+$where[] = join(' ', (array) $param );
+```

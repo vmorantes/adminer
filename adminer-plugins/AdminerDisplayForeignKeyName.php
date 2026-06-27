@@ -54,7 +54,7 @@ class AdminerDisplayForeignKeyName
                 $where = array();
                 foreach( $params['where'] as $param )
                 {
-                   $where[] = join(' ', $param );
+                   $where[] = join(' ', (array) $param );
                 }
                 
                 // Find the first char/varchar/enum field to display
