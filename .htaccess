@@ -1,0 +1,28 @@
+# Apache 2.4. Protege la instalación de Adminer (ADR 0005).
+# Lista de permitidos: solo se sirve index.php (y la carpeta, que abre index.php) y adminer.css.
+# Todo lo demás (md, txt, env, php internos, plugins...) responde 403, también lo que se añada
+# en el futuro.
+
+# Lo heredado de directorios superiores: se sustituye lo que se puede sustituir.
+# - Control de acceso: las reglas Require de aquí reemplazan a las del padre.
+# - Reescrituras: no se heredan reglas de un .htaccess superior.
+# - Listados y negociación de contenido: desactivados aunque el padre los active.
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteOptions IgnoreInherit
+</IfModule>
+
+Require all denied
+
+<FilesMatch "^(index\.php|adminer\.css)$">
+    Require all granted
+</FilesMatch>
+
+# La carpeta en sí (URL terminada en /): se permite para que DirectoryIndex abra index.php.
+# Sin listados (-Indexes), una subcarpeta sin index.php sigue dando 403.
+<If "%{REQUEST_URI} =~ m#/$#">
+    Require all granted
+</If>

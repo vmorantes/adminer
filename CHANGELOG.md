@@ -12,6 +12,9 @@ oficial está en `documentacion/mantenimiento/parches.md`.
   `PARCHE-LOCAL` en el código.
 - Modelo de trabajo arquitecto-coder y documentación de evolución y mantenimiento.
 - Publicación en el repositorio de distribución `adminer-dist` con `scripts/publicar-dist.sh`.
+- `.htaccess` en `adminer-dist`: solo se sirven `index.php` y `adminer.css`.
+- `scripts/descargar-adminer.sh`: descarga una versión de Adminer con sus externals y sustituye
+  `core/adminer/`, avisando de los parches locales que hay que reaplicar.
 
 ### Cambiado
 
