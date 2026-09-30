@@ -7,8 +7,8 @@ un asistente SQL con Google Gemini.
 ## Instalación
 
 1. Clonar en una carpeta servida por PHP 8.1 o superior.
-2. Para el asistente SQL: copiar `.env.example` a `.env` y poner `GEMINI_API_KEY`. El
-   asistente envía a Google la estructura de la base (no los datos).
+2. Copiar `.env.example` a `.env`. `DEV_MODE` va en `false` en un servidor. Para el asistente
+   SQL, `GEMINI_API_KEY`; el asistente envía a Google la estructura de la base (no los datos).
 3. Abrir `index.php`.
 
 Los plugins activos se configuran en `adminer-plugins.php`. Este repositorio se genera desde

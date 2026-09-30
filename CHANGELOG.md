@@ -13,6 +13,10 @@ oficial está en `documentacion/mantenimiento/parches.md`.
 - Modelo de trabajo arquitecto-coder y documentación de evolución y mantenimiento.
 - Publicación en el repositorio de distribución `adminer-dist` con `scripts/publicar-dist.sh`.
 
+### Cambiado
+
+- El modo desarrollo se activa con `DEV_MODE=true` en `.env`, no editando `index.php`.
+
 ### Eliminado
 
 - `core/CORE_CHANELOG.md`: su contenido pasa a `parches.md` y a este archivo.
