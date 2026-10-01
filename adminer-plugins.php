@@ -6,7 +6,7 @@ loadEnv(__DIR__ . '/.env');
 $GEMINI_API_KEY = getenv('GEMINI_API_KEY');
 
 $plugins = [
-    'AdminerDisplayForeignKeyName' => new AdminerDisplayForeignKeyName(),
+    'AdminerSelectForeign' => new AdminerSelectForeign(),
     'AdminerDumpAlter' => new AdminerDumpAlter(),
     'AdminerDumpArray' => new AdminerDumpArray(),
     'AdminerDumpBz2' => new AdminerDumpBz2(),
@@ -14,6 +14,7 @@ $plugins = [
     'AdminerDumpJson' => new AdminerDumpJson(),
     'AdminerDumpXml' => new AdminerDumpXml(),
     'AdminerDumpZip' => new AdminerDumpZip(),
+    'AdminerDumpSinDefiner' => new AdminerDumpSinDefiner(),
     'AdminerFkDisable' => new AdminerFkDisable(),
     'AdminerForeignKeys' => new AdminerForeignKeys(),
     'AdminerForeignSystem' => new AdminerForeignSystem(),

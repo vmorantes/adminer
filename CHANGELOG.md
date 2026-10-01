@@ -12,15 +12,32 @@ oficial está en `documentacion/mantenimiento/parches.md`.
   `PARCHE-LOCAL` en el código.
 - Modelo de trabajo arquitecto-coder y documentación de evolución y mantenimiento.
 - Publicación en el repositorio de distribución `adminer-dist` con `scripts/publicar-dist.sh`.
+- La guarda permite a los agentes consultar el remoto oficial de Adminer (solo lectura).
 - `.htaccess` en `adminer-dist`: solo se sirven `index.php` y `adminer.css`.
 - `scripts/descargar-adminer.sh`: descarga una versión de Adminer con sus externals y sustituye
   `core/adminer/`, avisando de los parches locales que hay que reaplicar.
+- Plugin propio `AdminerDumpSinDefiner`: opción «Omitir DEFINER» en la exportación SQL, para
+  vistas, rutinas y eventos de cualquier cuenta (Adminer solo lo quita si es la cuenta conectada).
 
 ### Cambiado
 
+- Adminer 6.1.1 (desde 5.4.2), con los parches P-01 a P-03 reaplicados y los plugins oficiales
+  copiados de nuevo.
+- `AdminerSqlGemini` usa `Adminer\get_url()` (muestra los errores de la petición) y el modelo
+  por defecto `gemini-3.1-flash-lite`, como el oficial.
+
 - El modo desarrollo se activa con `DEV_MODE=true` en `.env`, no editando `index.php`.
 
+### Corregido
+
+- P-03: `compile.php` escribía en `core/adminer../../../adminer.php`, una ruta que no existe;
+  ahora escribe `adminer.php` en la raíz.
+
 ### Eliminado
+
+- `AdminerDisplayForeignKeyName` y su parche P-04: lo sustituye `AdminerSelectForeign`,
+  el oficial `select-foreign` con el parche P-05, que conserva el `[valor] descripción` (P-05) con una
+  consulta por columna. En 6.1.1 daba «Attempt to read property "num_rows" on bool».
 
 - `core/CORE_CHANELOG.md`: su contenido pasa a `parches.md` y a este archivo.
 

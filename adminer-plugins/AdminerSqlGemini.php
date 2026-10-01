@@ -17,7 +17,7 @@ class AdminerSqlGemini extends Adminer\Plugin
      * @param string $apiKey The default key is shared with all users and may run out of quota; get your own API key at: https://aistudio.google.com/apikey
      * @param string $model Available models: https://ai.google.dev/gemini-api/docs/models#available-models
      */
-    public function __construct($apiKey = 'AIzaSyBN6QOjU2JwFkYaXhlYHnhdMxEQ9jA7vAw', $model = "gemini-2.5-flash")
+    public function __construct($apiKey = 'AIzaSyBN6QOjU2JwFkYaXhlYHnhdMxEQ9jA7vAw', $model = "gemini-3.1-flash-lite")
     {
         $this->apiKey = $apiKey;
         $this->model = $model;
@@ -39,7 +39,7 @@ class AdminerSqlGemini extends Adminer\Plugin
                 "content" => '{"contents": [{"parts":[{"text": ' . json_encode($prompt) . '}]}]}',
                 "ignore_errors" => true,
             ]]);
-            $response = json_decode(file_get_contents("https://generativelanguage.googleapis.com/v1beta/models/$this->model:generateContent?key=$this->apiKey", false, $context));
+            $response = json_decode(Adminer\get_url("https://generativelanguage.googleapis.com/v1beta/models/$this->model:generateContent?key=$this->apiKey", $context)[0]);
             if (isset($response->error)) {
                 echo "-- " . $response->error->message;
             } else {
