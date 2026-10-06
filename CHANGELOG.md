@@ -1,10 +1,16 @@
 # Changelog
 
-Cambios de esta instalación de Adminer, por versión de Adminer. Formato basado en
+Cambios de esta instalación de Adminer. Formato basado en
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Lo que hoy difiere de Adminer
 oficial está en `documentacion/mantenimiento/parches.md`.
 
+Desde 2026-10-01, cada sección es una publicación en `adminer-dist`: `[AAAA-MM-DD]` y la versión
+de Adminer publicada. La cierra `scripts/publicar-dist.sh` (ADR 0007); las anteriores van por
+versión de Adminer.
+
 ## [Sin publicar]
+
+## [2026-10-01] - Adminer 6.1.1
 
 ### Añadido
 
