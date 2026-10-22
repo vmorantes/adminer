@@ -13,6 +13,9 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteOptions IgnoreInherit
+    # Nada dentro de una subcarpeta se sirve, aunque tenga index.php: el <If> de abajo deja pasar
+    # las carpetas para que funcione la de la instalación, y esto cierra las demás.
+    RewriteRule ^[^/]+/ - [F]
 </IfModule>
 
 Require all denied

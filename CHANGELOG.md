@@ -10,6 +10,13 @@ versión de Adminer.
 
 ## [Sin publicar]
 
+## [2026-10-22.2] - Adminer 6.1.1
+
+### Corregido
+
+- `.htaccess` de `adminer-dist`: ninguna ruta dentro de una subcarpeta se sirve, aunque tenga
+  `index.php` (antes las subcarpetas daban 403 solo por no tener `index.php`).
+
 ## [2026-10-22] - Adminer 6.1.1
 
 ### Corregido
