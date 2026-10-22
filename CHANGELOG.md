@@ -10,6 +10,13 @@ versión de Adminer.
 
 ## [Sin publicar]
 
+## [2026-10-22] - Adminer 6.1.1
+
+### Corregido
+
+- `.htaccess` de `adminer-dist`: la URL de la carpeta sin barra final (`/adminer`) daba 403 en
+  lugar de redirigir a `/adminer/`.
+
 ## [2026-10-01] - Adminer 6.1.1
 
 ### Añadido
